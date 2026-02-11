@@ -1,0 +1,11 @@
+import { Router } from 'express';
+import { createVisit, getVisits, getVisitById, advanceStep, approveStep, declineStep } from '../controllers/visitController.js';
+import { protect } from '../middleware/authMiddleware.js';
+const router = Router();
+router.post('/', createVisit);
+router.get('/', getVisits);
+router.get('/:id', getVisitById);
+router.patch('/:id/step', advanceStep);
+router.patch('/:id/approve', protect, approveStep);
+router.patch('/:id/decline', protect, declineStep);
+export default router;
