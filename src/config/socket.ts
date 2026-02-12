@@ -10,6 +10,7 @@ export const initSocket = (httpServer: HttpServer): Server<ClientToServerEvents,
       origin: process.env.CLIENT_URL
         ? process.env.CLIENT_URL.split(',')
         : ['http://localhost:5173', 'https://knetgh-site.netlify.app'],
+      credentials: true,
       methods: ['GET', 'POST'],
     },
   });

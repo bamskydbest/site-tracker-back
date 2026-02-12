@@ -25,6 +25,7 @@ app.use(cors({
   origin: process.env.CLIENT_URL
     ? process.env.CLIENT_URL.split(',')
     : ['http://localhost:5173', 'https://knetgh-site.netlify.app'],
+  credentials: true,
 }));
 app.use(express.json());
 
