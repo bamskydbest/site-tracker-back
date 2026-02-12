@@ -7,9 +7,11 @@ let io: Server<ClientToServerEvents, ServerToClientEvents>;
 export const initSocket = (httpServer: HttpServer): Server<ClientToServerEvents, ServerToClientEvents> => {
   io = new Server(httpServer, {
     cors: {
-      origin: process.env.CLIENT_URL
-        ? process.env.CLIENT_URL.split(',')
-        : ['http://localhost:5173', 'https://knetgh-site.netlify.app'],
+      origin: [
+        'http://localhost:5173',
+        'https://knetgh-site.netlify.app',
+        ...(process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',') : []),
+      ],
       credentials: true,
       methods: ['GET', 'POST'],
     },
