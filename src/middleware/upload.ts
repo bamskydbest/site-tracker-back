@@ -12,6 +12,7 @@ const upload = multer({
       cb(new Error('Only image files are allowed'));
     }
   },
+  
 });
 
 export default upload;

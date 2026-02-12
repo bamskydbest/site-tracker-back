@@ -41,6 +41,7 @@ export const generatePDF = (visits: VisitData[], res: Response): void => {
   doc.end();
 };
 
+
 export const generateCSV = (visits: VisitData[], res: Response): void => {
   const fields = [
     { label: 'Technician', value: 'technicianName' },
