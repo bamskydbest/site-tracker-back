@@ -3,7 +3,12 @@ let io;
 export const initSocket = (httpServer) => {
     io = new Server(httpServer, {
         cors: {
-            origin: process.env.CLIENT_URL || 'http://localhost:5173',
+            origin: [
+                'http://localhost:5173',
+                'https://knetgh-site.netlify.app',
+                ...(process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',') : []),
+            ],
+            credentials: true,
             methods: ['GET', 'POST'],
         },
     });

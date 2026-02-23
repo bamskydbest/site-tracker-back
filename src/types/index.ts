@@ -26,6 +26,7 @@ export interface IVisit {
   _id: Types.ObjectId;
   technicianName: string;
   siteName: string;
+  reason: string;
   gpsLocation: IGpsLocation;
   currentStep: 'checkIn' | 'arrivalPhotos' | 'departurePhotos' | 'complete';
   steps: {
@@ -40,6 +41,7 @@ export interface IVisit {
   checkInTime: Date;
   checkOutTime?: Date;
   status: 'active' | 'awaiting-approval' | 'completed' | 'declined';
+  idempotencyKey?: string;
   createdAt: Date;
   updatedAt: Date;
 }

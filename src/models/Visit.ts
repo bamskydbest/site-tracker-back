@@ -18,6 +18,8 @@ const visitSchema = new Schema<IVisit>(
   {
     technicianName: { type: String, required: true, trim: true },
     siteName: { type: String, required: true, trim: true },
+    reason: { type: String, required: true, trim: true },
+    idempotencyKey: { type: String, unique: true, sparse: true },
     gpsLocation: {
       lat: { type: Number, required: true },
       lng: { type: Number, required: true },

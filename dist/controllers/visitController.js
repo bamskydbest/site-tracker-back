@@ -3,11 +3,21 @@ import { getIO } from '../config/socket.js';
 import { notifyAdmins } from '../utils/sendEmail.js';
 export const createVisit = async (req, res) => {
     try {
-        const { technicianName, siteName, gpsLocation } = req.body;
+        const { technicianName, siteName, gpsLocation, reason, idempotencyKey } = req.body;
+        // Idempotency check: if this request was already processed, return the existing visit
+        if (idempotencyKey) {
+            const existing = await Visit.findOne({ idempotencyKey });
+            if (existing) {
+                res.status(201).json(existing);
+                return;
+            }
+        }
         const visit = await Visit.create({
             technicianName,
             siteName,
+            reason,
             gpsLocation,
+            ...(idempotencyKey ? { idempotencyKey } : {}),
             currentStep: 'arrivalPhotos',
             steps: {
                 checkIn: { status: 'completed', completedAt: new Date() },

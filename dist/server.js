@@ -17,7 +17,15 @@ const PORT = process.env.PORT || 6000;
 // Init Socket.IO
 initSocket(httpServer);
 // Middlewares
-app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173' }));
+const allowedOrigins = [
+    'http://localhost:5173',
+    'https://knetgh-site.netlify.app',
+    ...(process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',') : []),
+];
+app.use(cors({
+    origin: allowedOrigins,
+    credentials: true,
+}));
 app.use(express.json());
 // Routes
 app.get('/', (_req, res) => {
