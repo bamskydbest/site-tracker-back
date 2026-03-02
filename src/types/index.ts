@@ -35,8 +35,10 @@ export interface IVisit {
     departurePhotos: IStepStatus;
     complete: IStepStatus;
   };
+  installationTypes: string[];
   arrivalPhotos: Types.ObjectId[];
   departurePhotos: Types.ObjectId[];
+  installationPhotos: Types.ObjectId[];
   comments: Types.ObjectId[];
   checkInTime: Date;
   checkOutTime?: Date;
@@ -51,7 +53,15 @@ export interface IPhoto {
   visit: Types.ObjectId;
   url: string;
   publicId: string;
-  type: 'arrival' | 'departure';
+  type:
+    | 'arrival'
+    | 'departure'
+    | 'radio-installation'
+    | 'poe-installation'
+    | 'poe-uplink'
+    | 'radio-installation-dep'
+    | 'poe-installation-dep'
+    | 'poe-uplink-dep';
   uploadedAt: Date;
 }
 

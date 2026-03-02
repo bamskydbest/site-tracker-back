@@ -3,10 +3,14 @@ import { getIO } from '../config/socket.js';
 import { notifyAdmins } from '../utils/sendEmail.js';
 export const createVisit = async (req, res) => {
     try {
-        const { technicianName, siteName, gpsLocation, reason, idempotencyKey } = req.body;
+        const { technicianName, siteName, gpsLocation, reason, idempotencyKey, installationTypes } = req.body;
         // Idempotency check: if this request was already processed, return the existing visit
         if (idempotencyKey) {
-            const existing = await Visit.findOne({ idempotencyKey });
+            const existing = await Visit.findOne({ idempotencyKey })
+                .populate('arrivalPhotos')
+                .populate('departurePhotos')
+                .populate('installationPhotos')
+                .populate({ path: 'comments', populate: { path: 'admin', select: 'name' } });
             if (existing) {
                 res.status(201).json(existing);
                 return;
@@ -17,6 +21,7 @@ export const createVisit = async (req, res) => {
             siteName,
             reason,
             gpsLocation,
+            installationTypes: Array.isArray(installationTypes) ? installationTypes : [],
             ...(idempotencyKey ? { idempotencyKey } : {}),
             currentStep: 'arrivalPhotos',
             steps: {
@@ -68,6 +73,7 @@ export const getVisits = async (req, res) => {
             Visit.find(filter)
                 .populate('arrivalPhotos')
                 .populate('departurePhotos')
+                .populate('installationPhotos')
                 .populate({ path: 'comments', populate: { path: 'admin', select: 'name' } })
                 .sort({ createdAt: -1 })
                 .skip(skip)
@@ -90,6 +96,7 @@ export const getVisitById = async (req, res) => {
         const visit = await Visit.findById(req.params.id)
             .populate('arrivalPhotos')
             .populate('departurePhotos')
+            .populate('installationPhotos')
             .populate({ path: 'comments', populate: { path: 'admin', select: 'name' } });
         if (!visit) {
             res.status(404).json({ message: 'Visit not found' });
@@ -181,6 +188,42 @@ export const approveStep = async (req, res) => {
             visitId: visit._id.toString(),
             visit,
         });
+        res.json(visit);
+    }
+    catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+export const submitStep = async (req, res) => {
+    try {
+        const visit = await Visit.findById(req.params.id);
+        if (!visit) {
+            res.status(404).json({ message: 'Visit not found' });
+            return;
+        }
+        const currentStep = visit.currentStep;
+        if (!['arrivalPhotos', 'departurePhotos'].includes(currentStep)) {
+            res.status(400).json({ message: 'Step cannot be submitted for approval' });
+            return;
+        }
+        if (visit.steps[currentStep].status === 'awaiting-approval') {
+            res.status(400).json({ message: 'Step is already awaiting approval' });
+            return;
+        }
+        visit.steps[currentStep].status = 'awaiting-approval';
+        visit.status = 'awaiting-approval';
+        await visit.save();
+        const io = getIO();
+        io.to('admin-dashboard').emit('photos-uploaded', {
+            visitId: visit._id.toString(),
+            type: currentStep === 'arrivalPhotos' ? 'arrival' : 'departure',
+            count: 0,
+        });
+        io.to(`visit:${visit._id}`).emit('visit-updated', {
+            visitId: visit._id.toString(),
+            visit,
+        });
+        notifyAdmins(`Photos Ready for Review: ${visit.technicianName} at ${visit.siteName}`, `<h2>Photos Submitted for Review</h2><p><strong>${visit.technicianName}</strong> has submitted all photos for the <strong>${currentStep === 'arrivalPhotos' ? 'arrival' : 'departure'}</strong> step at <strong>${visit.siteName}</strong>.</p><p>Please review and approve.</p>`).catch(console.error);
         res.json(visit);
     }
     catch (error) {

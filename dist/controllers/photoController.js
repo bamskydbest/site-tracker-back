@@ -20,7 +20,22 @@ export const uploadPhotos = async (req, res) => {
             res.status(404).json({ message: 'Visit not found' });
             return;
         }
-        const type = visit.currentStep === 'arrivalPhotos' ? 'arrival' : 'departure';
+        // Determine photo type: explicit from body, or derived from current step
+        const installationPhotoTypes = [
+            'radio-installation',
+            'poe-installation',
+            'poe-uplink',
+            'radio-installation-dep',
+            'poe-installation-dep',
+            'poe-uplink-dep',
+        ];
+        const requestedType = req.body.photoType;
+        const isInstallationPhoto = requestedType && installationPhotoTypes.includes(requestedType);
+        const type = isInstallationPhoto
+            ? requestedType
+            : visit.currentStep === 'arrivalPhotos'
+                ? 'arrival'
+                : 'departure';
         const uploadPromises = files.map((file) => uploadToCloudinary(file.buffer, `${type}/${visitId}`));
         const uploadResults = await Promise.all(uploadPromises);
         const photos = await Photo.insertMany(uploadResults.map((result) => ({
@@ -30,26 +45,42 @@ export const uploadPhotos = async (req, res) => {
             type,
         })));
         const photoIds = photos.map((p) => p._id);
-        if (type === 'arrival') {
+        if (isInstallationPhoto) {
+            visit.installationPhotos.push(...photoIds);
+            // Installation photos don't trigger awaiting-approval — frontend calls submit-step
+        }
+        else if (type === 'arrival') {
             visit.arrivalPhotos.push(...photoIds);
+            // If visit has no installation types, auto-submit (backward-compatible behaviour)
+            if (!visit.installationTypes || visit.installationTypes.length === 0) {
+                visit.steps[visit.currentStep].status = 'awaiting-approval';
+                visit.status = 'awaiting-approval';
+            }
         }
         else {
             visit.departurePhotos.push(...photoIds);
+            // If visit has no installation types, auto-submit
+            if (!visit.installationTypes || visit.installationTypes.length === 0) {
+                visit.steps[visit.currentStep].status = 'awaiting-approval';
+                visit.status = 'awaiting-approval';
+            }
         }
-        visit.steps[visit.currentStep].status = 'awaiting-approval';
-        visit.status = 'awaiting-approval';
         await visit.save();
         const io = getIO();
-        io.to('admin-dashboard').emit('photos-uploaded', {
-            visitId,
-            type,
-            count: photos.length,
-        });
+        if (!isInstallationPhoto) {
+            io.to('admin-dashboard').emit('photos-uploaded', {
+                visitId,
+                type: type,
+                count: photos.length,
+            });
+        }
         io.to(`visit:${visitId}`).emit('visit-updated', {
             visitId,
             visit,
         });
-        notifyAdmins(`Photos Uploaded: ${visit.technicianName} - ${type} photos`, `<h2>Photos Uploaded</h2><p><strong>${visit.technicianName}</strong> uploaded ${photos.length} ${type} photos at <strong>${visit.siteName}</strong></p><p>Please review and approve.</p>`).catch(console.error);
+        if (!isInstallationPhoto && (!visit.installationTypes || visit.installationTypes.length === 0)) {
+            notifyAdmins(`Photos Uploaded: ${visit.technicianName} - ${type} photos`, `<h2>Photos Uploaded</h2><p><strong>${visit.technicianName}</strong> uploaded ${photos.length} ${type} photos at <strong>${visit.siteName}</strong></p><p>Please review and approve.</p>`).catch(console.error);
+        }
         res.status(201).json(photos);
     }
     catch (error) {
@@ -70,8 +101,11 @@ export const deletePhoto = async (req, res) => {
             if (photo.type === 'arrival') {
                 visit.arrivalPhotos = visit.arrivalPhotos.filter((id) => id.toString() !== photo._id.toString());
             }
-            else {
+            else if (photo.type === 'departure') {
                 visit.departurePhotos = visit.departurePhotos.filter((id) => id.toString() !== photo._id.toString());
+            }
+            else {
+                visit.installationPhotos = visit.installationPhotos.filter((id) => id.toString() !== photo._id.toString());
             }
             await visit.save();
         }
