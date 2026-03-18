@@ -6,14 +6,18 @@ export interface IAdmin {
   email: string;
   password: string;
   role: 'admin' | 'superadmin';
+  department?: string;
+  status: 'pending' | 'active';
   createdAt: Date;
   updatedAt: Date;
+  comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
 export interface IStepStatus {
   status: 'pending' | 'in-progress' | 'awaiting-approval' | 'approved' | 'declined' | 'completed';
   completedAt?: Date;
   declineReason?: string;
+  approvedBy?: string;
 }
 
 export interface IGpsLocation {
@@ -27,6 +31,7 @@ export interface IVisit {
   technicianName: string;
   siteName: string;
   reason: string;
+  department?: string;
   gpsLocation: IGpsLocation;
   currentStep: 'checkIn' | 'arrivalPhotos' | 'departurePhotos' | 'complete';
   steps: {
@@ -35,6 +40,7 @@ export interface IVisit {
     departurePhotos: IStepStatus;
     complete: IStepStatus;
   };
+  // Legacy fields — kept for backward compatibility
   installationTypes: string[];
   arrivalPhotos: Types.ObjectId[];
   departurePhotos: Types.ObjectId[];
@@ -54,6 +60,14 @@ export interface IPhoto {
   url: string;
   publicId: string;
   type:
+    // New types
+    | 'outdoor-arrival'
+    | 'power-arrival'
+    | 'rack-arrival'
+    | 'outdoor-departure'
+    | 'power-departure'
+    | 'rack-departure'
+    // Legacy types
     | 'arrival'
     | 'departure'
     | 'radio-installation'
@@ -62,6 +76,7 @@ export interface IPhoto {
     | 'radio-installation-dep'
     | 'poe-installation-dep'
     | 'poe-uplink-dep';
+  caption?: string;
   uploadedAt: Date;
 }
 

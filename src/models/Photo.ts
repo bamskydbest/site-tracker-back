@@ -8,6 +8,14 @@ const photoSchema = new Schema<IPhoto>({
   type: {
     type: String,
     enum: [
+      // New types
+      'outdoor-arrival',
+      'power-arrival',
+      'rack-arrival',
+      'outdoor-departure',
+      'power-departure',
+      'rack-departure',
+      // Legacy types (backward compatibility)
       'arrival',
       'departure',
       'radio-installation',
@@ -19,6 +27,7 @@ const photoSchema = new Schema<IPhoto>({
     ],
     required: true,
   },
+  caption: { type: String },
   uploadedAt: { type: Date, default: Date.now },
 });
 

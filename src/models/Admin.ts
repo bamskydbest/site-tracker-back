@@ -8,6 +8,8 @@ const adminSchema = new Schema<IAdmin>(
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     password: { type: String, required: true, minlength: 6 },
     role: { type: String, enum: ['admin', 'superadmin'], default: 'admin' },
+    department: { type: String, trim: true },
+    status: { type: String, enum: ['pending', 'active'], default: 'active' },
   },
   { timestamps: true }
 );

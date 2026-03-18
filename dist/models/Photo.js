@@ -6,6 +6,14 @@ const photoSchema = new Schema({
     type: {
         type: String,
         enum: [
+            // New types
+            'outdoor-arrival',
+            'power-arrival',
+            'rack-arrival',
+            'outdoor-departure',
+            'power-departure',
+            'rack-departure',
+            // Legacy types (backward compatibility)
             'arrival',
             'departure',
             'radio-installation',
@@ -17,6 +25,7 @@ const photoSchema = new Schema({
         ],
         required: true,
     },
+    caption: { type: String },
     uploadedAt: { type: Date, default: Date.now },
 });
 export default mongoose.model('Photo', photoSchema);
