@@ -8,7 +8,11 @@ const seed = async () => {
         console.log('Connected to MongoDB');
         const exists = await Admin.findOne({ email: 'admin@sitetracker.com' });
         if (exists) {
-            console.log('Default admin already exists');
+            // Ensure role and status are correct even if the record predates these fields
+            exists.role = 'superadmin';
+            exists.status = 'active';
+            await exists.save();
+            console.log('Default admin updated: role=superadmin, status=active');
         }
         else {
             await Admin.create({
@@ -16,6 +20,7 @@ const seed = async () => {
                 email: 'admin@sitetracker.com',
                 password: 'admin123',
                 role: 'superadmin',
+                status: 'active',
             });
             console.log('Default admin created: admin@sitetracker.com / admin123');
         }

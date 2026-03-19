@@ -68,7 +68,15 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
 export const getMe = async (req: Request, res: Response): Promise<void> => {
   try {
-    res.json(req.admin);
+    const a = req.admin!;
+    res.json({
+      _id: a._id,
+      name: a.name,
+      email: a.email,
+      role: a.role,
+      department: a.department,
+      status: a.status,
+    });
   } catch (error) {
     res.status(500).json({ message: (error as Error).message });
   }

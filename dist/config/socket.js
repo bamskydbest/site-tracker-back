@@ -1,16 +1,27 @@
 import { Server } from 'socket.io';
 let io;
 export const initSocket = (httpServer) => {
+    const allowedOrigins = [
+        'http://localhost:5173',
+        'https://knetgh-site.netlify.app',
+        ...(process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',') : []),
+    ];
     io = new Server(httpServer, {
         cors: {
-            origin: [
-                'http://localhost:5173',
-                'https://knetgh-site.netlify.app',
-                ...(process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',') : []),
-            ],
+            origin: (origin, callback) => {
+                // Allow requests with no origin (e.g. mobile apps, Postman) or matched origins
+                if (!origin || allowedOrigins.includes(origin)) {
+                    callback(null, true);
+                }
+                else {
+                    callback(null, true); // permissive on hosted — tighten if needed
+                }
+            },
             credentials: true,
             methods: ['GET', 'POST'],
         },
+        pingTimeout: 60000,
+        pingInterval: 25000,
     });
     io.on('connection', (socket) => {
         console.log('Client connected:', socket.id);
