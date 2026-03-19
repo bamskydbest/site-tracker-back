@@ -10,6 +10,8 @@ const adminSchema = new Schema<IAdmin>(
     role: { type: String, enum: ['admin', 'superadmin'], default: 'admin' },
     department: { type: String, trim: true },
     status: { type: String, enum: ['pending', 'active'], default: 'active' },
+    resetPasswordToken: { type: String },
+    resetPasswordExpires: { type: Date },
   },
   { timestamps: true }
 );

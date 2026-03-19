@@ -10,6 +10,8 @@ export interface IAdmin {
   status: 'pending' | 'active';
   createdAt: Date;
   updatedAt: Date;
+  resetPasswordToken?: string;
+  resetPasswordExpires?: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 

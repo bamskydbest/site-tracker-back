@@ -200,11 +200,17 @@ export const approveStep = async (req: Request, res: Response): Promise<void> =>
 
     await visit.save();
 
+    const populated = await Visit.findById(visit._id)
+      .populate('arrivalPhotos')
+      .populate('departurePhotos')
+      .populate('installationPhotos')
+      .populate({ path: 'comments', populate: { path: 'admin', select: 'name' } });
+
     const io = getIO();
     io.to(`visit:${visit._id}`).emit('step-approved', { visitId: visit._id.toString(), step: currentStep });
-    io.to('admin-dashboard').emit('visit-updated', { visitId: visit._id.toString(), visit });
+    io.to('admin-dashboard').emit('visit-updated', { visitId: visit._id.toString(), visit: populated });
 
-    res.json(visit);
+    res.json(populated);
   } catch (error) {
     res.status(500).json({ message: (error as Error).message });
   }
@@ -273,11 +279,17 @@ export const declineStep = async (req: Request, res: Response): Promise<void> =>
 
     await visit.save();
 
+    const populated = await Visit.findById(visit._id)
+      .populate('arrivalPhotos')
+      .populate('departurePhotos')
+      .populate('installationPhotos')
+      .populate({ path: 'comments', populate: { path: 'admin', select: 'name' } });
+
     const io = getIO();
     io.to(`visit:${visit._id}`).emit('step-declined', { visitId: visit._id.toString(), step: currentStep, reason });
-    io.to('admin-dashboard').emit('visit-updated', { visitId: visit._id.toString(), visit });
+    io.to('admin-dashboard').emit('visit-updated', { visitId: visit._id.toString(), visit: populated });
 
-    res.json(visit);
+    res.json(populated);
   } catch (error) {
     res.status(500).json({ message: (error as Error).message });
   }

@@ -1,6 +1,15 @@
 import transporter from '../config/email.js';
 import Admin from '../models/Admin.js';
 
+export const sendEmailTo = async (to: string, subject: string, html: string): Promise<void> => {
+  await transporter.sendMail({
+    from: process.env.MAIL_FROM || `"Site Tracker" <${process.env.SMTP_USER}>`,
+    to,
+    subject,
+    html,
+  });
+};
+
 export const notifyAdmins = async (subject: string, html: string): Promise<void> => {
   try {
     const admins = await Admin.find({}, 'email');
