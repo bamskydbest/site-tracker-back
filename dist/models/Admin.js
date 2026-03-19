@@ -9,6 +9,7 @@ const adminSchema = new Schema({
     status: { type: String, enum: ['pending', 'active'], default: 'active' },
     resetPasswordToken: { type: String },
     resetPasswordExpires: { type: Date },
+    lastLoginAt: { type: Date },
 }, { timestamps: true });
 adminSchema.pre('save', async function () {
     if (!this.isModified('password'))

@@ -50,6 +50,9 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    admin.lastLoginAt = new Date();
+    await admin.save();
+
     const token = generateToken(admin._id.toString(), admin.role);
 
     res.json({
@@ -145,7 +148,7 @@ export const getAllAdmins = async (req: Request, res: Response): Promise<void> =
     }
     const admins = await Admin.find({ role: 'admin' })
       .select('-password -resetPasswordToken -resetPasswordExpires')
-      .sort({ createdAt: -1 });
+      .sort({ lastLoginAt: -1, createdAt: -1 });
     res.json(admins);
   } catch (error) {
     res.status(500).json({ message: (error as Error).message });

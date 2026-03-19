@@ -12,6 +12,7 @@ const adminSchema = new Schema<IAdmin>(
     status: { type: String, enum: ['pending', 'active'], default: 'active' },
     resetPasswordToken: { type: String },
     resetPasswordExpires: { type: Date },
+    lastLoginAt: { type: Date },
   },
   { timestamps: true }
 );

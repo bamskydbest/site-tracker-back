@@ -40,6 +40,8 @@ export const login = async (req, res) => {
             res.status(401).json({ message: 'Your account is awaiting superadmin approval.' });
             return;
         }
+        admin.lastLoginAt = new Date();
+        await admin.save();
         const token = generateToken(admin._id.toString(), admin.role);
         res.json({
             _id: admin._id,
@@ -132,7 +134,7 @@ export const getAllAdmins = async (req, res) => {
         }
         const admins = await Admin.find({ role: 'admin' })
             .select('-password -resetPasswordToken -resetPasswordExpires')
-            .sort({ createdAt: -1 });
+            .sort({ lastLoginAt: -1, createdAt: -1 });
         res.json(admins);
     }
     catch (error) {

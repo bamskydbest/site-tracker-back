@@ -12,6 +12,7 @@ export interface IAdmin {
   updatedAt: Date;
   resetPasswordToken?: string;
   resetPasswordExpires?: Date;
+  lastLoginAt?: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
