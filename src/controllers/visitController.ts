@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import Visit from '../models/Visit.js';
 import { getIO } from '../config/socket.js';
-import { notifyAdmins } from '../utils/sendEmail.js';
+import { notifyDepartmentAndSuperadmins } from '../utils/sendEmail.js';
 
 export const createVisit = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -43,9 +43,10 @@ export const createVisit = async (req: Request, res: Response): Promise<void> =>
       siteName,
     });
 
-    notifyAdmins(
+    notifyDepartmentAndSuperadmins(
+      department || '',
       `New Check-in: ${technicianName} at ${siteName}`,
-      `<h2>New Site Visit</h2><p><strong>${technicianName}</strong> checked in at <strong>${siteName}</strong></p><p>Department: ${department || 'N/A'}</p><p>Location: ${gpsLocation.address || `${gpsLocation.lat}, ${gpsLocation.lng}`}</p>`
+      `<h2>New Site Visit</h2><p><strong>${technicianName}</strong> checked in at <strong>${siteName}</strong>.</p><p>Department: <strong>${department || 'N/A'}</strong></p><p>Location: ${gpsLocation?.address || `${gpsLocation?.lat}, ${gpsLocation?.lng}`}</p>`
     ).catch(console.error);
 
     res.status(201).json(visit);
@@ -168,6 +169,15 @@ export const approveStep = async (req: Request, res: Response): Promise<void> =>
       return;
     }
 
+    // Only superadmins or the department head for this visit may approve
+    if (
+      req.admin?.role !== 'superadmin' &&
+      req.admin?.department !== visit.department
+    ) {
+      res.status(403).json({ message: 'Not authorised to approve visits for this department' });
+      return;
+    }
+
     const currentStep = visit.currentStep;
     if (visit.steps[currentStep].status !== 'awaiting-approval') {
       res.status(400).json({ message: 'Step is not awaiting approval' });
@@ -247,9 +257,10 @@ export const submitStep = async (req: Request, res: Response): Promise<void> => 
     });
     io.to(`visit:${visit._id}`).emit('visit-updated', { visitId: visit._id.toString(), visit });
 
-    notifyAdmins(
+    notifyDepartmentAndSuperadmins(
+      visit.department || '',
       `Photos Ready for Review: ${visit.technicianName} at ${visit.siteName}`,
-      `<h2>Photos Submitted for Review</h2><p><strong>${visit.technicianName}</strong> has submitted <strong>${currentStep === 'arrivalPhotos' ? 'arrival' : 'departure'}</strong> photos at <strong>${visit.siteName}</strong>.</p><p>Please review and approve.</p>`
+      `<h2>Photos Submitted for Review</h2><p><strong>${visit.technicianName}</strong> has submitted <strong>${currentStep === 'arrivalPhotos' ? 'arrival' : 'departure'}</strong> photos at <strong>${visit.siteName}</strong>.</p><p>Department: <strong>${visit.department || 'N/A'}</strong></p><p>Please log in to review and approve.</p>`
     ).catch(console.error);
 
     res.json(visit);
@@ -264,6 +275,15 @@ export const declineStep = async (req: Request, res: Response): Promise<void> =>
     const visit = await Visit.findById(req.params.id);
     if (!visit) {
       res.status(404).json({ message: 'Visit not found' });
+      return;
+    }
+
+    // Only superadmins or the department head for this visit may decline
+    if (
+      req.admin?.role !== 'superadmin' &&
+      req.admin?.department !== visit.department
+    ) {
+      res.status(403).json({ message: 'Not authorised to decline visits for this department' });
       return;
     }
 
