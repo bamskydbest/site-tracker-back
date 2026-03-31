@@ -181,15 +181,20 @@ export const forgotPassword = async (req, res) => {
         await admin.save();
         const clientUrl = process.env.CLIENT_URL?.split(',')[0] || 'http://localhost:5173';
         const resetUrl = `${clientUrl}/reset-password?token=${token}`;
-        await sendEmailTo(admin.email, 'Site Tracker — Password Reset', `<h2>Password Reset Request</h2>
-       <p>Hello ${admin.name},</p>
-       <p>Click the button below to reset your password. This link expires in <strong>1 hour</strong>.</p>
-       <p style="margin:24px 0">
-         <a href="${resetUrl}" style="background:#002f6c;color:white;padding:12px 24px;text-decoration:none;border-radius:6px;font-weight:bold;">
-           Reset Password
-         </a>
-       </p>
-       <p>If you did not request this, you can safely ignore this email.</p>`);
+        try {
+            await sendEmailTo(admin.email, 'Site Tracker — Password Reset', `<h2>Password Reset Request</h2>
+         <p>Hello ${admin.name},</p>
+         <p>Click the button below to reset your password. This link expires in <strong>1 hour</strong>.</p>
+         <p style="margin:24px 0">
+           <a href="${resetUrl}" style="background:#002f6c;color:white;padding:12px 24px;text-decoration:none;border-radius:6px;font-weight:bold;">
+             Reset Password
+           </a>
+         </p>
+         <p>If you did not request this, you can safely ignore this email.</p>`);
+        }
+        catch (emailError) {
+            console.error('Forgot password email error:', emailError);
+        }
         res.json(successMsg);
     }
     catch (error) {
