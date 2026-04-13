@@ -35,6 +35,9 @@ export interface IVisit {
   siteName: string;
   reason: string;
   department?: string;
+  visitorType?: 'internal' | 'external';
+  companyName?: string;
+  contactEmail?: string;
   gpsLocation: IGpsLocation;
   currentStep: 'checkIn' | 'arrivalPhotos' | 'departurePhotos' | 'complete';
   steps: {

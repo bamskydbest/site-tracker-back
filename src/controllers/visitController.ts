@@ -1,11 +1,11 @@
 import type { Request, Response } from 'express';
 import Visit from '../models/Visit.js';
 import { getIO } from '../config/socket.js';
-import { notifyDepartmentAndSuperadmins } from '../utils/sendEmail.js';
+import { notifyDepartmentAndSuperadmins, notifyExternalVisitor } from '../utils/sendEmail.js';
 
 export const createVisit = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { technicianName, siteName, gpsLocation, reason, department, idempotencyKey } = req.body;
+    const { technicianName, siteName, gpsLocation, reason, department, idempotencyKey, visitorType, companyName, contactEmail } = req.body;
 
     if (idempotencyKey) {
       const existing = await Visit.findOne({ idempotencyKey })
@@ -19,20 +19,26 @@ export const createVisit = async (req: Request, res: Response): Promise<void> =>
       }
     }
 
+    const isExternal = visitorType === 'external';
+
     const visit = await Visit.create({
       technicianName,
       siteName,
       reason,
       department: department || '',
+      visitorType: isExternal ? 'external' : 'internal',
+      ...(isExternal && companyName ? { companyName } : {}),
+      ...(isExternal && contactEmail ? { contactEmail } : {}),
       gpsLocation,
       ...(idempotencyKey ? { idempotencyKey } : {}),
       currentStep: 'arrivalPhotos',
       steps: {
         checkIn: { status: 'completed', completedAt: new Date() },
-        arrivalPhotos: { status: 'in-progress' },
+        arrivalPhotos: { status: isExternal ? 'awaiting-approval' : 'in-progress' },
         departurePhotos: { status: 'pending' },
         complete: { status: 'pending' },
       },
+      status: isExternal ? 'awaiting-approval' : 'active',
       checkInTime: new Date(),
     });
 
@@ -43,11 +49,24 @@ export const createVisit = async (req: Request, res: Response): Promise<void> =>
       siteName,
     });
 
-    notifyDepartmentAndSuperadmins(
-      department || '',
-      `New Check-in: ${technicianName} at ${siteName}`,
-      `<h2>New Site Visit</h2><p><strong>${technicianName}</strong> checked in at <strong>${siteName}</strong>.</p><p>Department: <strong>${department || 'N/A'}</strong></p><p>Location: ${gpsLocation?.address || `${gpsLocation?.lat}, ${gpsLocation?.lng}`}</p>`
-    ).catch(console.error);
+    if (isExternal) {
+      notifyDepartmentAndSuperadmins(
+        department || '',
+        `External Visitor Request: ${technicianName} at ${siteName}`,
+        `<h2>External Visitor Request</h2>
+         <p><strong>${technicianName}</strong>${companyName ? ` from <strong>${companyName}</strong>` : ''} has requested access to <strong>${siteName}</strong>.</p>
+         <p>Department: <strong>${department || 'N/A'}</strong></p>
+         <p>Reason: ${reason}</p>
+         <p>Location: ${gpsLocation?.address || `${gpsLocation?.lat}, ${gpsLocation?.lng}`}</p>
+         <p>Please review and approve or decline this request.</p>`
+      ).catch(console.error);
+    } else {
+      notifyDepartmentAndSuperadmins(
+        department || '',
+        `New Check-in: ${technicianName} at ${siteName}`,
+        `<h2>New Site Visit</h2><p><strong>${technicianName}</strong> checked in at <strong>${siteName}</strong>.</p><p>Department: <strong>${department || 'N/A'}</strong></p><p>Location: ${gpsLocation?.address || `${gpsLocation?.lat}, ${gpsLocation?.lng}`}</p>`
+      ).catch(console.error);
+    }
 
     res.status(201).json(visit);
   } catch (error) {
@@ -169,8 +188,15 @@ export const approveStep = async (req: Request, res: Response): Promise<void> =>
       return;
     }
 
-    // Only superadmins or the department head for this visit may approve
+    // External visits: only superadmin can approve
+    if (visit.visitorType === 'external' && req.admin?.role !== 'superadmin') {
+      res.status(403).json({ message: 'Only superadmin can approve external visitor requests' });
+      return;
+    }
+
+    // Internal visits: only superadmin or matching department head can approve
     if (
+      visit.visitorType !== 'external' &&
       req.admin?.role !== 'superadmin' &&
       req.admin?.department !== visit.department
     ) {
@@ -188,24 +214,35 @@ export const approveStep = async (req: Request, res: Response): Promise<void> =>
     visit.steps[currentStep].completedAt = new Date();
     visit.steps[currentStep].approvedBy = req.admin?.name ?? 'Admin';
 
-    const stepOrder = ['checkIn', 'arrivalPhotos', 'departurePhotos', 'complete'] as const;
-    const currentIdx = stepOrder.indexOf(currentStep);
-    const nextStep = stepOrder[currentIdx + 1];
+    if (visit.visitorType === 'external') {
+      // External: skip photo steps, jump straight to complete
+      visit.steps.departurePhotos.status = 'approved';
+      visit.steps.departurePhotos.completedAt = new Date();
+      visit.steps.complete.status = 'completed';
+      visit.steps.complete.completedAt = new Date();
+      visit.currentStep = 'complete';
+      visit.checkOutTime = new Date();
+      visit.status = 'completed';
+    } else {
+      const stepOrder = ['checkIn', 'arrivalPhotos', 'departurePhotos', 'complete'] as const;
+      const currentIdx = stepOrder.indexOf(currentStep);
+      const nextStep = stepOrder[currentIdx + 1];
 
-    if (nextStep) {
-      visit.currentStep = nextStep;
-      visit.steps[nextStep].status = 'in-progress';
+      if (nextStep) {
+        visit.currentStep = nextStep;
+        visit.steps[nextStep].status = 'in-progress';
 
-      if (nextStep === 'complete') {
-        visit.steps.complete.status = 'completed';
-        visit.steps.complete.completedAt = new Date();
-        visit.checkOutTime = new Date();
-        visit.status = 'completed';
+        if (nextStep === 'complete') {
+          visit.steps.complete.status = 'completed';
+          visit.steps.complete.completedAt = new Date();
+          visit.checkOutTime = new Date();
+          visit.status = 'completed';
+        }
       }
-    }
 
-    if (visit.status === 'awaiting-approval') {
-      visit.status = 'active';
+      if (visit.status === 'awaiting-approval') {
+        visit.status = 'active';
+      }
     }
 
     await visit.save();
@@ -219,6 +256,12 @@ export const approveStep = async (req: Request, res: Response): Promise<void> =>
     const io = getIO();
     io.to(`visit:${visit._id}`).emit('step-approved', { visitId: visit._id.toString(), step: currentStep });
     io.to('admin-dashboard').emit('visit-updated', { visitId: visit._id.toString(), visit: populated });
+
+    // Notify external visitor via email
+    if (visit.visitorType === 'external' && visit.contactEmail) {
+      notifyExternalVisitor(visit.contactEmail, visit.technicianName, visit.siteName, 'approved')
+        .catch(console.error);
+    }
 
     res.json(populated);
   } catch (error) {
@@ -278,8 +321,15 @@ export const declineStep = async (req: Request, res: Response): Promise<void> =>
       return;
     }
 
-    // Only superadmins or the department head for this visit may decline
+    // External visits: only superadmin can decline
+    if (visit.visitorType === 'external' && req.admin?.role !== 'superadmin') {
+      res.status(403).json({ message: 'Only superadmin can decline external visitor requests' });
+      return;
+    }
+
+    // Internal visits: only superadmin or matching department head can decline
     if (
+      visit.visitorType !== 'external' &&
       req.admin?.role !== 'superadmin' &&
       req.admin?.department !== visit.department
     ) {
@@ -308,6 +358,12 @@ export const declineStep = async (req: Request, res: Response): Promise<void> =>
     const io = getIO();
     io.to(`visit:${visit._id}`).emit('step-declined', { visitId: visit._id.toString(), step: currentStep, reason });
     io.to('admin-dashboard').emit('visit-updated', { visitId: visit._id.toString(), visit: populated });
+
+    // Notify external visitor via email
+    if (visit.visitorType === 'external' && visit.contactEmail) {
+      notifyExternalVisitor(visit.contactEmail, visit.technicianName, visit.siteName, 'declined', reason)
+        .catch(console.error);
+    }
 
     res.json(populated);
   } catch (error) {

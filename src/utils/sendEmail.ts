@@ -18,6 +18,33 @@ export const notifyAdmins = async (subject: string, html: string): Promise<void>
   }
 };
 
+export const notifyExternalVisitor = async (
+  email: string,
+  name: string,
+  siteName: string,
+  status: 'approved' | 'declined',
+  reason?: string
+): Promise<void> => {
+  const subject =
+    status === 'approved'
+      ? `Site Visit Approved — ${siteName}`
+      : `Site Visit Declined — ${siteName}`;
+
+  const html =
+    status === 'approved'
+      ? `<h2>Visit Request Approved</h2>
+         <p>Dear ${name},</p>
+         <p>Your request to visit <strong>${siteName}</strong> has been <strong style="color:#16a34a">approved</strong>. You may proceed to the site.</p>
+         <p>Thank you.</p>`
+      : `<h2>Visit Request Declined</h2>
+         <p>Dear ${name},</p>
+         <p>Your request to visit <strong>${siteName}</strong> has been <strong style="color:#dc2626">declined</strong>.</p>
+         ${reason ? `<p>Reason: <em>${reason}</em></p>` : ''}
+         <p>Please contact the relevant department for further assistance.</p>`;
+
+  await transporter.sendMail({ from: FROM, to: email, subject, html });
+};
+
 /**
  * Notifies all active superadmins + any active admin whose department
  * matches the visit's department. Deduplicates by email address.

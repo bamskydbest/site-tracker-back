@@ -9,22 +9,24 @@ const seed = async () => {
     await mongoose.connect(process.env.MONGO_URI as string);
     console.log('Connected to MongoDB');
 
-    const exists = await Admin.findOne({ email: 'admin@sitetracker.com' });
+    const exists = await Admin.findOne({ role: 'superadmin' });
     if (exists) {
-      // Ensure role and status are correct even if the record predates these fields
+      exists.name = 'Superadmin';
+      exists.email = 'sites@knetgh.net';
+      exists.password = 'sitekn3t@26';
       exists.role = 'superadmin';
       exists.status = 'active';
       await exists.save();
-      console.log('Default admin updated: role=superadmin, status=active');
+      console.log('Superadmin updated: sites@knetgh.net / sitekn3t@26');
     } else {
       await Admin.create({
-        name: 'Admin',
-        email: 'admin@sitetracker.com',
-        password: 'admin123',
+        name: 'Superadmin',
+        email: 'sites@knetgh.net',
+        password: 'sitekn3t@26',
         role: 'superadmin',
         status: 'active',
       });
-      console.log('Default admin created: admin@sitetracker.com / admin123');
+      console.log('Superadmin created: sites@knetgh.net / sitekn3t@26');
     }
 
     await mongoose.disconnect();

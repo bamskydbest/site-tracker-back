@@ -14,6 +14,9 @@ const visitSchema = new Schema({
     siteName: { type: String, required: true, trim: true },
     reason: { type: String, required: true, trim: true },
     department: { type: String, trim: true },
+    visitorType: { type: String, enum: ['internal', 'external'], default: 'internal' },
+    companyName: { type: String, trim: true },
+    contactEmail: { type: String, trim: true, lowercase: true },
     idempotencyKey: { type: String, unique: true, sparse: true },
     gpsLocation: {
         lat: { type: Number, required: true },
